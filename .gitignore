@@ -1,0 +1,6 @@
+build/*
+!build/.gitkeep
+tools/__pycache__
+tools/build_*
+tools/run-clang-tidy.py.old
+third_party/CMakeUserPresets.json
