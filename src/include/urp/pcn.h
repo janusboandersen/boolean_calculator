@@ -71,15 +71,9 @@ namespace pcn {
      */
     class Factor {
     public:
-        // Use like Factor{0b1, 0b0}
-        explicit
-        Factor(int b1, int b0) : b1{static_cast<unsigned char>(b1)}, 
-                                 b0{static_cast<unsigned char>(b0)} {}
-
-        // Use like Factor{0b10}
-        explicit
-        Factor(int b1b0) : b1{static_cast<unsigned char>((b1b0>>1) & 1)},
-                           b0{static_cast<unsigned char>(b1b0 & 1)} {}
+        
+        explicit Factor(int b1, int b0);        // Use like Factor{0b1, 0b0}
+        explicit Factor(int b1b0);              // Use like Factor{0b10}
 
         Factor& operator=(int b1b0);
 
@@ -129,53 +123,23 @@ namespace pcn {
      * Invariant fixed-length: A function F with N variables -> all Cubes must have N Factors, each with the same relative positioning.
     */
     class Cube {
-    public:
-
-        // empty
-        explicit Cube() {}
-
-        // Copy-construction
-        Cube(const Cube& other) : m_cube{ other.m_cube } {}
-
-        // Copy-assignment
-        Cube& operator=(const Cube& other) {
-            if (this != &other) {
-                this->m_cube.clear();
-                std::copy(other.m_cube.cbegin(), other.m_cube.cend(), std::back_inserter(this->m_cube));
-            }
-            
-            return *this;
-        }
-
-        // Initalize as Cube of N times "don't care". E.g. Cube(3).
-        explicit
-        Cube(int n_variables) {
-            m_cube = std::vector<Factor>(n_variables, Factor(0b11));
-        }
-
-        // Specify the Factors in the Cube explicitly via braced initalizer list of Factors. E.g. Cube{Factor(0b11), Factor(0b01), Factor(0b10)}.
-        explicit 
-        Cube(std::initializer_list<Factor> factor_list) {
-            m_cube = std::vector<Factor>(factor_list);
-        }
-
-        // Specify the Factors in the Cube implicity as a braced initalizer list of ints. E.g. Cube{0b11, 0b01, 0b10}.
-        explicit
-        Cube(std::initializer_list<int> literal_list) {
-            for (auto literal : literal_list) {
-                m_cube.push_back(Factor{literal});
-            }
-        }
+    public:  
+        explicit Cube();                                            // Empty
+        explicit Cube(int n_variables);                             // Cube of N times "don't care". E.g. Cube(3).
+        explicit Cube(std::initializer_list<Factor> factor_list);   // Cube{Factor(0b11), Factor(0b01), Factor(0b10)}.
+        explicit Cube(std::initializer_list<int> literal_list);     // Cube{0b11, 0b01, 0b10}.
+        Cube(const Cube& other);                                    // Copy-construction
+        Cube& operator=(const Cube& other);                         // Copy-assignment
 
         Factor& at(int pos);
-        void push_back(Factor factor)                       { m_cube.push_back(factor); };
+        void push_back(Factor factor);
         const Factor& at(int pos) const;
-        std::vector<Factor>::iterator begin()               { return m_cube.begin();  };
-        std::vector<Factor>::iterator end()                 { return m_cube.end();    };
-        std::vector<Factor>::const_iterator begin() const   { return m_cube.cbegin(); };
-        std::vector<Factor>::const_iterator end() const     { return m_cube.cend();   };
-        std::vector<Factor>::const_iterator cbegin() const  { return m_cube.cbegin(); };
-        std::vector<Factor>::const_iterator cend() const    { return m_cube.cend();   };
+        std::vector<Factor>::iterator begin();
+        std::vector<Factor>::iterator end();
+        std::vector<Factor>::const_iterator begin() const;
+        std::vector<Factor>::const_iterator end() const;
+        std::vector<Factor>::const_iterator cbegin() const;
+        std::vector<Factor>::const_iterator cend() const;
         std::size_t size() const;
         std::string str() const;
         std::string inline_str() const;
@@ -199,46 +163,14 @@ namespace pcn {
     */
     class CubeList {
     public:
-
-        // Empty CubeList, must know dimension
-        explicit 
-        CubeList(IndexType dimension) : dim{dimension} {};
-
-        // CubeList{Cube{0b11, 0b01, 0b10}, Cube{0b01, 0b10, 0b01}} <->.
-        // CubeList{Cube{ one,  pos,  neg}, Cube{ pos,  neg,  neg}} <->
-        // F = (x1 * x2') + (x0 * x1' * x2)
-        explicit
-        CubeList(std::initializer_list<Cube> cube_init_list) 
-            : dim{cube_init_list.begin()->size()} // asking for Cube.size()
-        {
-            for (auto cube : cube_init_list) {
-                this->m_list.push_back(cube);
-            }
-        }
-
-        // CubeList{{0b11, 0b01, 0b10}, {0b01, 0b10, 0b01}}
-        explicit
-        CubeList(std::initializer_list<std::initializer_list<int>> nested_literal_init_list) 
-            : dim{nested_literal_init_list.begin()->size()}     // asking for std::initializer_list<int>.size()
-        {
-            for (auto literal_init_list : nested_literal_init_list) {
-                m_list.push_back(Cube{literal_init_list});
-            }
-        }
-
-        // CubeList{{one, pos, neg}, {pos, neg, neg}}
-        explicit
-        CubeList(std::initializer_list<std::initializer_list<Factor>> nested_factor_init_list)
-            : dim{nested_factor_init_list.begin()->size()}     // asking for std::initializer_list<Factor>.size()
-        {
-            for (auto factor_init_list : nested_factor_init_list) {
-                m_list.push_back(Cube{factor_init_list});
-            }
-        }
+        explicit CubeList(IndexType dimension);                                                             // Empty CubeList, must specify dimension
+        explicit CubeList(std::initializer_list<Cube> cube_init_list);                                      // CubeList{Cube{0b11, 0b01, 0b10}, Cube{0b01, 0b10, 0b01}}
+        explicit CubeList(std::initializer_list<std::initializer_list<int>> nested_literal_init_list);      // CubeList{{0b11, 0b01, 0b10}, {0b01, 0b10, 0b01}}
+        explicit CubeList(std::initializer_list<std::initializer_list<Factor>> nested_factor_init_list);    // CubeList{{one, pos, neg}, {pos, neg, neg}}
 
         void push_back(Cube&& cube);
         void push_back_nonzero(Cube&& cube);
-        const Cube& front() const                             { return m_list.front(); }
+        const Cube& front() const;
         CountType size() const;
         CountType N() const;
         std::string str() const;
@@ -247,12 +179,12 @@ namespace pcn {
 
         // Iterable
         using value_type = Cube;
-        std::list<Cube>::iterator begin()                { return this->m_list.begin();  }
-        std::list<Cube>::iterator end()                  { return this->m_list.end();    }
-        std::list<Cube>::const_iterator begin() const    { return this->m_list.cbegin(); }
-        std::list<Cube>::const_iterator end()   const    { return this->m_list.cend();   }
-        std::list<Cube>::const_iterator cbegin() const   { return this->m_list.cbegin(); }
-        std::list<Cube>::const_iterator cend() const     { return this->m_list.cend();   }        
+        std::list<Cube>::iterator begin();
+        std::list<Cube>::iterator end();
+        std::list<Cube>::const_iterator begin() const;
+        std::list<Cube>::const_iterator end() const;
+        std::list<Cube>::const_iterator cbegin() const;
+        std::list<Cube>::const_iterator cend() const;
 
     private:
         std::list<Cube> m_list;         // Choosing list as we need many insertions and removals without invalidating iterators.

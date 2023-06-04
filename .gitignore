@@ -1,5 +1,7 @@
 build/*
 !build/.gitkeep
+docs/
+!docs/Doxyfile
 tools/__pycache__
 tools/build_*
 tools/run-clang-tidy.py.old

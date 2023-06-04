@@ -129,6 +129,9 @@ std::string MetaVariable::str() const
     return s.str();
 }
 
+/**
+ * @brief Get the variable index (subscript) for the variable.
+ */
 IndexType MetaVariable::index() const
 {
     return m_idx; 
@@ -147,6 +150,9 @@ std::ostream& operator<<(std::ostream& os, const MetaVariable& m)
  * METAFUNCTION IMPLEMENTATIONS *
  *******************************/
 
+/**
+ * @brief Construct a MetaFunction (SOP+intelligence) from a CubeList.
+ */
 MetaFunction::MetaFunction(const CubeList& cube_list)
 {
     this->m_N = cube_list.N();          // Inherit dimensionality
@@ -186,6 +192,9 @@ CompareType MetaFunction::min_of(MetaVariableFilter& data, std::function<Compare
     return (it != data.end() ? attr_getter(**it) : 0); // don't try to dereference the past-the-end ptr, just return zero.
 }
 
+/**
+ * @brief Create filter (pointers) with all variables.
+ */
 MetaVariableFilter MetaFunction::all() const 
 {
     MetaVariableFilter ptrs;
@@ -193,6 +202,9 @@ MetaVariableFilter MetaFunction::all() const
     return ptrs;
 } 
 
+/**
+ * @brief Create filter (pointers) with all variables where predicate (functor) is true.
+ */
 MetaVariableFilter MetaFunction::filter(MetaVariableFilter& data, std::function<bool(const MetaVariable&)> functor) const 
 {
     MetaVariableFilter ptrs;
@@ -201,7 +213,6 @@ MetaVariableFilter MetaFunction::filter(MetaVariableFilter& data, std::function<
     }
     return ptrs;
 } 
-
 
 /**
  * @brief Select recursion variable based on rules 1-5.
@@ -350,8 +361,5 @@ std::string MetaFunction::str() const
 
     return s.str();
 }
-
-
-
 
 } // namespace pcn

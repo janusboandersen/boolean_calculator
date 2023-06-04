@@ -16,11 +16,17 @@
 
 namespace adaptor {
 
+/**
+ * @brief Construct an in-file adaptor that doesn't open a file.
+ */
 PcnInFileAdaptor::PcnInFileAdaptor() 
 {
     filename = "NoFile";
 }
 
+/**
+ * @brief Construct an in-file adaptor that opens a file for reading (RAII).
+ */
 PcnInFileAdaptor::PcnInFileAdaptor(std::string filename) : filename{filename} 
 {
     this->file = std::ifstream {filename};
@@ -34,6 +40,9 @@ PcnInFileAdaptor::PcnInFileAdaptor(std::string filename) : filename{filename}
     }
 }
 
+/**
+ * @brief String presentation of object.
+ */
 std::string PcnInFileAdaptor::str()
 {
     std::stringstream s;
@@ -43,12 +52,18 @@ std::string PcnInFileAdaptor::str()
     return s.str();
 }
 
+/**
+ * @brief Load contents of file into a CubeList, which is then returned.
+ */
 pcn::CubeList PcnInFileAdaptor::load()
 {
     while (read_cube()) { }
     return *sop;
 }
 
+/**
+ * @brief Read a cube from the file (single line).
+ */
 bool PcnInFileAdaptor::read_cube() 
 {
     int enumerated_vars_in_cube;
@@ -70,12 +85,17 @@ bool PcnInFileAdaptor::read_cube()
     return true;
 }
 
-
+/**
+ * @brief Construct an out-file adaptor that doesn't open a file.
+ */
 PcnOutFileAdaptor::PcnOutFileAdaptor()
 {
     filename = "NoFile";
 }
 
+/**
+ * @brief Construct an out-file adaptor that opens a file for writing (RAII).
+ */
 PcnOutFileAdaptor::PcnOutFileAdaptor(std::string filename) : filename{filename}
 {
     this->file = std::ofstream(filename, std::ios::out);
@@ -84,6 +104,9 @@ PcnOutFileAdaptor::PcnOutFileAdaptor(std::string filename) : filename{filename}
     }
 }
 
+/**
+ * @brief String presentation of object.
+ */
 std::string PcnOutFileAdaptor::str()
 {
     std::stringstream s;
@@ -91,11 +114,17 @@ std::string PcnOutFileAdaptor::str()
     return s.str();
 }
 
+/**
+ * @brief Store contents of a CubeList into a file. Returns true if successful.
+ */
 bool PcnOutFileAdaptor::store(const pcn::CubeList& cube_list)
 {
     return write_header(cube_list) && write_cubes(cube_list);
 }
 
+/**
+ * @brief Write the two header digits to the PCN file.
+ */
 bool PcnOutFileAdaptor::write_header (const pcn::CubeList& cube_list)
 {
     if (!this->file.good()) { return false; }
@@ -104,11 +133,17 @@ bool PcnOutFileAdaptor::write_header (const pcn::CubeList& cube_list)
     return true;
 }
 
+/**
+ * @brief Analyze Cube to find out how many variables must be stated in the PCN file.
+ */
 CountType PcnOutFileAdaptor::count_enumerated_vars(const pcn::Cube& cube) 
 {
     return std::count_if(cube.cbegin(), cube.cend(), [](pcn::Factor factor){ return factor == pcn::Factor::pos() || factor == pcn::Factor::neg(); });
 }
 
+/**
+ * @brief String representation of a single variable as used in PCN files.
+ */
 std::string PcnOutFileAdaptor::var_repr(pcn::BooleanVariable bv) 
 {
     std::stringstream s;
@@ -117,6 +152,9 @@ std::string PcnOutFileAdaptor::var_repr(pcn::BooleanVariable bv)
     return s.str();
 }
 
+/**
+ * @brief String representation of a complete Cube which becomes a line in a PCN file.
+ */
 std::string PcnOutFileAdaptor::cube_repr(const pcn::Cube& cube) 
 {
     std::stringstream s;
@@ -128,6 +166,9 @@ std::string PcnOutFileAdaptor::cube_repr(const pcn::Cube& cube)
     return s.str();
 }
 
+/**
+ * @brief Write all cubes to the PCN file.
+ */
 bool PcnOutFileAdaptor::write_cubes(const pcn::CubeList& cube_list) 
 {
     if (!this->file.good()) { return false; }
