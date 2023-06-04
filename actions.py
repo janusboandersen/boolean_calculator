@@ -192,6 +192,8 @@ def set_shell_commands():
 
         "cmake-build-default-cmd"   : f"cmake --build {global_params['build-directory']} -j {global_params['cmake-build-parallel-level']} ", # -j N for multicore build
 
+        "cmake-docs-cmd"            : f"cmake --build {global_params['build-directory']} --target docs",
+
         "execute-app-cmd"           : os.path.join(
                                         global_params['binary-app-directory'], 
                                         global_params['project-name'] + global_params['binary-app-postfix']),
@@ -439,6 +441,9 @@ def handle_args(args):
             return
         else:
             run_single_target(args.clang_tidy_target)
+
+    if (args.docs):
+        os.system(shell_commands['cmake-docs-cmd'])
 
     if (args.clean_project):
         os.system(shell_commands['clean-project-cmd'])
