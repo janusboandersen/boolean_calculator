@@ -1,0 +1,82 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "~> Configure BooleanCalculator with debug symbols",
+            "detail": "Invoke CMake to configure project, required to build it at a later stage.",
+            "command": "/usr/bin/cmake",
+            "args": [
+                "-S",
+                "/root/dev/BooleanCalculator",
+                "-B",
+                "/root/dev/BooleanCalculator/build",
+                "-G",
+                "\"Unix",
+                "Makefiles\"",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DBUILD_TESTS=ON",
+                "--graphviz=/root/dev/BooleanCalculator/build/dependency_graph/dependency_graph.dot",
+                "-DUSE_CONAN=ON",
+                "-DCMAKE_TOOLCHAIN_FILE=/root/dev/BooleanCalculator/build/conan_deps/conan_toolchain.cmake",
+                "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW"
+            ],
+            "options": {
+                "cwd": "/root/dev/BooleanCalculator/build"
+            }
+        },
+        {
+            "type": "shell",
+            "label": "~> Build BooleanCalculator",
+            "detail": "Invoke CMake to build project now.",
+            "command": "/usr/bin/cmake",
+            "args": [
+                "--build",
+                "/root/dev/BooleanCalculator/build",
+                "-j8",
+                ""
+            ],
+            "options": {
+                "cwd": "/root/dev/BooleanCalculator/build"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": [
+                "~> Configure BooleanCalculator with debug symbols"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "~> Run tests for BooleanCalculator",
+            "detail": "Run all unit tests now.",
+            "command": "/root/dev/BooleanCalculator/build/test/BooleanCalculator_test_run",
+            "args": [],
+            "options": {
+                "cwd": "/root/dev/BooleanCalculator/build"
+            },
+            "dependsOn": [
+                "~> Build BooleanCalculator"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "~> Run code coverage for BooleanCalculator",
+            "detail": "Analyze code coverage.",
+            "command": "/usr/bin/cmake",
+            "args": [
+                "--build",
+                "/root/dev/BooleanCalculator/build",
+                "--target",
+                "coverage"
+            ],
+            "options": {
+                "cwd": "/root/dev/BooleanCalculator/build"
+            },
+            "dependsOn": [
+                "~> Build BooleanCalculator"
+            ]
+        }
+    ]
+}

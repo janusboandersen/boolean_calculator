@@ -1,0 +1,28 @@
+/**
+ * @file {{ header_file }}
+ * @author Janus Bo Andersen
+ * @brief Component for {{ component_group }}: {{ component_longname_clear_text }}
+ * 
+ * Component description...
+ * 
+ * @version 1.0
+ * @date {{ make_date }}
+ * 
+ * @copyright Copyright (c) {{ make_year }}
+ * 
+ */
+
+#include <vector>
+
+#pragma once
+
+namespace {{ component_namespace }} {
+
+class Solution {
+public:
+    using InputValueType = std::vector<int>;
+    using ReturnValueType = bool;
+    ReturnValueType renameMe(InputValueType& nums);
+};
+
+} // namespace {{ component_namespace }}

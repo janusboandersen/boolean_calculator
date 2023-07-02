@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "~> BooleanCalculator debug",
+            "cwd": "${workspaceFolder}",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/root/dev/BooleanCalculator/build/app/BooleanCalculator_run",
+            "stopAtEntry": true,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "~> Build BooleanCalculator",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

@@ -1,0 +1,20 @@
+{
+    "version": 4,
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/root/.conan2/p/gtesta3bcde91f9ae9/p/include",
+                "/root/dev/BooleanCalculator/build/config/include",
+                "/root/dev/BooleanCalculator/src/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/c++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "/root/dev/BooleanCalculator/build/compile_commands.json"
+        }
+    ]
+}

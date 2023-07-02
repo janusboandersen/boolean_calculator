@@ -1,0 +1,33 @@
+/**
+ * @file {{ test_file }}
+ * @author Janus Bo Andersen
+ * @brief Tests for {{ component_group }}: {{ component_longname }}
+ * @version 1.0
+ * @date {{ make_date }}
+ * 
+ * @copyright Copyright (c) {{ make_year }}
+ * 
+ */
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <{{ include_header }}>
+
+using namespace testing;
+using namespace {{ component_namespace }};
+
+struct TestPair {
+    Solution::InputValueType data;
+    Solution::ReturnValueType result;
+};
+
+class {{ component_namespace }}_{{ component_longname }}_ConstraintsAndExamples: public Test {
+public:
+    Solution solution;
+    TestPair ex1 { {1,2,3,1}, true };
+
+};
+
+TEST_F({{ component_namespace }}_{{ component_longname }}_ConstraintsAndExamples, TestCase1_MatchesExample) {
+    EXPECT_EQ(solution.renameMe(ex1.data), ex1.result);
+}

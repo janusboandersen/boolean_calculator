@@ -30,6 +30,11 @@ Examples:
     As above, and also run the code coverage analysis (extra compile step)
     ./actions.py --build-test-project --run-coverage
 
+    Emit configuration JSON files for VSCode
+    ./actions.py --vscode-launch
+    ./actions.py --vscode-tasks --with-tests --use-conan
+    ./actions.py --vscode-properties --with-tests --use-conan       
+
 Tips:
 - Easiest, if this file is executable (chmod +x). Otherwise use python3 ...
 
@@ -50,7 +55,9 @@ project-use-conan       $PROJECT_USE_CONAN      --use-conan, --conan-install    
 Note: Flags/options will override environment variables.
 Note: If any of these are not resolvable, fallback settings are used.
 
-TODO: Figure out how/if to coordinate cppstd across files. Currently locked at 17.
+Regarding VSCode configurations, see: https://code.visualstudio.com/docs/cpp/config-msvc#_create-a-build-task
+
+TODO: Figure out how/if to coordinate cppstd across files. Currently locked at 17. Not stored in CMakeCache.txt
 TODO: Refactor to move further utility functions to actions_helper.py
 
 Ver. 0.8.0 
@@ -64,8 +71,16 @@ from functools import partial
 from collections import OrderedDict
 import re
 from typing import List, Dict, OrderedDict, Union
+import json
+
 
 from tools.actions_helper import is_on_str, guard_single
+from tools.actions_helper import VSCodeLaunch, VSCodeTasks, VSCodeTask, VSCodeTaskOption, VSCodeTaskGroup, VSCodeProperties
+from tools.cmakecache_reader import CMakeCache
+from tools.conantoolchain_reader import get_conan_include_paths
+
+
+cppstd = 17     # No effect on CMake, only Conan and VSCode
 
 fallback = {
     "project-name"              : "MISSING_PROJECT_NAME",
@@ -89,6 +104,7 @@ def set_global_params():
 
         "base-directory"            : os.getenv('PWD'),
         "build-directory"           : os.path.join(os.getenv('PWD'), "build"),
+        "source-directory"          : os.path.join(os.getenv('PWD'), "src"),
         "docs-directory"            : os.path.join(os.getenv('PWD'), "docs"),
         "third-party-directory"     : os.path.join(os.getenv('PWD'), "third_party"),
         "tools-directory"           : os.path.join(os.getenv('PWD'), "tools"),
@@ -101,7 +117,9 @@ def set_global_params():
         "dependency-graph-output"   : os.path.join(os.getenv('PWD'), "build", "dependency_graph.png"),
 
         "cmake-cache-file"          : os.path.join(os.getenv('PWD'), "build", "CMakeCache.txt"),
-        "cmake-build-parallel-level": 8,                                                                        # Number of cores
+        "cmake-build-parallel-level": 8,                                                                        # Number of cores -j8
+
+        "cmake-compile-commands"    : os.path.join(os.getenv('PWD'), "build", "compile_commands.json"),
 
         "binary-app-directory"      : os.path.join(os.getenv('PWD'), "build", "app"),
         "binary-app-postfix"        : "_run",
@@ -120,18 +138,24 @@ def set_global_params():
                                         "clang_tidy_target_list",
                                         "clang_tidy_all",
                                         "clang_tidy_target",
-                                        "docs_target_list"
+                                        "docs_target_list",
+                                        "vscode_tasks"
                                     ],
 
         # These actions require a run of the guard/resolution of environment variables and flags/options.
         "action-triggers-guard"     : [
                                         "conan_install",            # needs project-build-type
-                                        "configure_project"         # needs all guarded variables
+                                        "configure_project",        # needs all guarded variables
+                                        "vscode_launch",            # needs project name
+                                        "vscode_tasks",             # needs build type and to know about Conan
+                                        "vscode_properties"         # needs everything in order to run reconfiguration
                                     ],
 
         # These actions will trigger a new CMake configuration run
         "action-triggers-config"    : [
                                         "configure_project",
+                                        "vscode_tasks",             # Needs target names (e.g. to know whether to build a coverage task)
+                                        "vscode_properties"         # Needs to know compiler, paths
                                     ],
     }
 
@@ -175,7 +199,7 @@ def set_shell_commands():
                                       f"-s build_type={global_params['project-build-type']} "
                                       f"--output-folder={global_params['conan-output-directory']} "
                                       f"--build missing "
-                                      f"-s compiler.cppstd=17",
+                                      f"-s compiler.cppstd={cppstd}",
 
         "cmake-configure-cmd"       : f"cmake -S {global_params['base-directory']} "
                                       f"-B {global_params['build-directory']} "
@@ -190,7 +214,7 @@ def set_shell_commands():
 
         "cmake-build-target-cmd"    : f"cmake --build {global_params['build-directory']} --target ",        # + <target_name>
 
-        "cmake-build-default-cmd"   : f"cmake --build {global_params['build-directory']} -j {global_params['cmake-build-parallel-level']} ", # -j N for multicore build
+        "cmake-build-default-cmd"   : f"cmake --build {global_params['build-directory']} -j{global_params['cmake-build-parallel-level']} ", # -j N for multicore build
 
         "cmake-docs-cmd"            : f"cmake --build {global_params['build-directory']} --target docs",
 
@@ -223,6 +247,7 @@ def get_parser():
     cleanopt    = parser.add_argument_group(title="Clean CMake project options")
     toolopt     = parser.add_argument_group(title="Project tooling options")
     docsopt     = parser.add_argument_group(title="Project documentation options")
+    vscodeopt   = parser.add_argument_group(title="VSCode options")
 
     conanopt.add_argument('--conan-profile', 
                             action='store_true', 
@@ -305,6 +330,18 @@ def get_parser():
     docsopt.add_argument('--docs', 
                             action='store_true',
                             help='Compile Doxygen documentation')
+
+    vscodeopt.add_argument('--vscode-launch', 
+                            action='store_true',
+                            help='Create VSCode launch.json file')
+    
+    vscodeopt.add_argument('--vscode-tasks', 
+                            action='store_true',
+                            help='Create VSCode tasks.json file')
+
+    vscodeopt.add_argument('--vscode-properties', 
+                            action='store_true',
+                            help='Create VSCode c_cpp_properties.json file')
 
     return parser
 
@@ -447,6 +484,171 @@ def handle_args(args):
 
     if (args.clean_project):
         os.system(shell_commands['clean-project-cmd'])
+
+    # *** VSCode config runs ***
+    if (args.vscode_launch):
+        launch_json = make_vscode_launch_json()
+        print("Copy to ../.vscode/launch.json:")
+        print(launch_json)
+
+    if (args.vscode_tasks):
+        tasks_json = make_vscode_tasks_json()
+        print("Copy to ../.vscode/tasks.json:")
+        print(tasks_json)
+
+    if (args.vscode_properties):
+        properties_json = make_vscode_properties_json()
+        print("Copy to ../.vscode/c_cpp_properties.json:")
+        print(properties_json)
+
+
+def make_vscode_launch_dict() -> VSCodeLaunch:
+    """
+    Creates Dictionary object parsable as launch.json by VSCode.
+    """
+    launch: VSCodeLaunch = {
+        'version': '0.2.0',
+        'configurations': [
+            {
+                'name': f"~> {global_params['project-name']} debug",
+                'cwd': '${workspaceFolder}',
+                'type': 'cppdbg',
+                'request': 'launch',
+                'program': shell_commands['execute-app-cmd'],
+                'stopAtEntry': True,
+                'environment': [],
+                'externalConsole': False,
+                'MIMode': 'gdb',
+                'setupCommands': [
+                    {
+                        'description': 'Enable pretty-printing for gdb',
+                        'text': '-enable-pretty-printing',
+                        'ignoreFailures': True
+                    }
+                ],
+                'preLaunchTask': f"~> Build {global_params['project-name']}",              # References the task with this name
+                'miDebuggerPath': '/usr/bin/gdb'
+            }
+        ]
+
+    }
+    return launch
+
+
+def make_vscode_launch_json():
+    return json.dumps(make_vscode_launch_dict(), indent=4)
+
+
+def make_vscode_tasks_dict() -> VSCodeTasks:
+    """
+    Creates Dictionary object parsable as tasks.json by VSCode.
+    """
+    config_cmd: str = shell_commands['cmake-configure-cmd'] + shell_commands['cmake-conan-add-cmd']
+    config_cmd_args = config_cmd.split(' ')
+
+    build_cmd: str = shell_commands['cmake-build-default-cmd']
+    build_cmd_args = build_cmd.split(' ')
+
+    options_obj: VSCodeTaskOption = {
+        'cwd': global_params['build-directory']
+    }
+
+    configure_debug_build_task: VSCodeTask = {
+        'type': 'shell',
+        'label': f"~> Configure {global_params['project-name']} with debug symbols",
+        'detail': 'Invoke CMake to configure project, required to build it at a later stage.',
+        'command': '/usr/bin/cmake',
+        'args': config_cmd_args[1:],                    # exclude cmake
+        'options': options_obj
+    }
+
+    make_debug_build_task: VSCodeTask = {
+        'type': 'shell',
+        'label': f"~> Build {global_params['project-name']}",
+        'detail': 'Invoke CMake to build project now.',
+        'command': '/usr/bin/cmake',
+        'args': build_cmd_args[1:],                     # exclude cmake
+        'options': options_obj,
+        'group': {
+            'kind': 'build',
+            'isDefault': True
+        },
+        'dependsOn': [configure_debug_build_task['label']]
+    }
+
+    run_test_task: VSCodeTask = {
+        'type': 'shell',
+        'label': f"~> Run tests for {global_params['project-name']}",
+        'detail': 'Run all unit tests now.',
+        'command': shell_commands['execute-tests-cmd'],
+        'args': [],
+        'options': options_obj,
+        'dependsOn': [make_debug_build_task['label']]
+    }
+
+    # Only make coverage task if coverage is set up as a target in CMakeLists.txt (or --use-coverage)
+    if use_coverage := is_known_target_of_type(target_type="coverage", target_id="coverage"):
+        # cmake --build {global_params['build-directory']} --target coverage
+        coverage_cmd: str = shell_commands['cmake-build-target-cmd'] + "coverage"
+        coverage_cmd_args = coverage_cmd.split(' ')
+
+        run_coverage_task: VSCodeTask = {
+            'type': 'shell',
+            'label': f"~> Run code coverage for {global_params['project-name']}",
+            'detail': 'Analyze code coverage.',
+            'command': '/usr/bin/cmake',
+            'args': coverage_cmd_args[1:],
+            'options': options_obj,
+            'dependsOn': [make_debug_build_task['label']]
+        }
+
+    tasks: VSCodeTasks = {
+        'version': "2.0.0",
+        'tasks': [configure_debug_build_task, make_debug_build_task, run_test_task]
+    }
+
+    if use_coverage:
+        tasks['tasks'].append(run_coverage_task)
+
+    return tasks
+
+def make_vscode_tasks_json():
+    return json.dumps(make_vscode_tasks_dict(), indent=4)
+
+
+def make_vscode_properties_dict() -> VSCodeProperties:
+    """
+    Creates Dictionary object parsable as c_cpp_properties.json by VSCode.
+    """
+
+    cc = CMakeCache(global_params['cmake-cache-file'])      # Load CMakeCache.txt
+    conan_include_paths = get_conan_include_paths(global_params['conan-output-toolchain'])
+
+    properties: VSCodeProperties = {
+        'version': 4,
+        'configurations': [
+            {
+                'name': 'Linux',
+                'includePath': [
+                    "${workspaceFolder}/**",
+                    *conan_include_paths,
+                    os.path.join(global_params['build-directory'], 'config', 'include'),
+                    os.path.join(global_params['source-directory'], 'include')
+                ],
+                'defines': [],
+                'compilerPath': cc['CMAKE_CXX_COMPILER'],
+                'cStandard': 'c17',
+                'cppStandard': f"c++{cppstd}",
+                'intelliSenseMode': 'linux-gcc-x64',
+                'compileCommands': global_params['cmake-compile-commands']
+            }
+        ]       
+    }
+    return properties
+
+
+def make_vscode_properties_json():
+    return json.dumps(make_vscode_properties_dict(), indent=4)
 
 
 def is_project_configured() -> bool:
